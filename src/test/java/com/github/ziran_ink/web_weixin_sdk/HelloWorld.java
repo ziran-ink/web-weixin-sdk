@@ -10,7 +10,7 @@ public class HelloWorld {
 		System.out.println(JSON.toJSONString(wechat.getWeixin().getStorage().getUserSelf()));
 		System.out.println(JSON.toJSONString(wechat.getWeixin().getStorage().getLoginInfo()));
 		System.out.println(JSON.toJSONString(wechat.getWeixin().getStorage().getNickName()));
-		System.out.println(wechat.getWeixin().sendMsgByNickName("测试", "罗晓娟"));
+		System.out.println(wechat.getWeixin().sendMsgByNickName("测试消息😁", "罗晓娟"));
 	}
 
 }
