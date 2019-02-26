@@ -339,6 +339,17 @@ public class WeixinImpl implements Weixin {
 	}
 
 	@Override
+	public void startHandleMsg(MsgHandler msgHandler) {
+		LOG.info("+++++++++++++++++++开始消息处理+++++++++++++++++++++");
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				handleMsg(msgHandler);
+			}
+		}).start();
+	}
+
+	@Override
 	public void webWxGetContact() {
 		String url = String.format(URLEnum.WEB_WX_GET_CONTACT.getUrl(),
 				storage.getLoginInfo().get(StorageLoginInfoEnum.url.getKey()));

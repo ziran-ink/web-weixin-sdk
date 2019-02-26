@@ -51,6 +51,8 @@ public interface Weixin {
 	 */
 	void startCheckLoginStatus();
 
+	void startHandleMsg(MsgHandler msgHandler);
+
 	/**
 	 * 获取微信联系人
 	 */

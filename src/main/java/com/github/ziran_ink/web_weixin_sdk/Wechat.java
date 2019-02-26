@@ -23,7 +23,7 @@ public class Wechat {
 		this.qrcodeFilePath = qrcodeFilePath;
 	}
 
-	private void login() {
+	public void start() {
 		if (weixin.getStorage().isAlive()) { // 已登陆
 			LOG.info("已登陆");
 			return;
@@ -83,17 +83,8 @@ public class Wechat {
 
 		LOG.info("12.开启微信状态检测线程");
 		weixin.startCheckLoginStatus();
-	}
 
-	public void start() {
-		login();
-		LOG.info("+++++++++++++++++++开始消息处理+++++++++++++++++++++");
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				weixin.handleMsg(msgHandler);
-			}
-		}).start();
+		weixin.startHandleMsg(msgHandler);
 	}
 
 	public Weixin getWeixin() {
