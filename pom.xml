@@ -5,7 +5,7 @@
 
 	<groupId>com.github.ziran-ink</groupId>
 	<artifactId>web-weixin-sdk</artifactId>
-	<version>1.0.2</version>
+	<version>1.0.3</version>
 	<packaging>jar</packaging>
 
 	<name>web-weixin-sdk</name>

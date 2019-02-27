@@ -166,9 +166,4 @@ public interface Weixin {
 	 * 根据用户昵称设置备注名称
 	 */
 	void remarkNameByNickName(String nickName, String remName);
-
-	/**
-	 * 获取微信在线状态
-	 */
-	boolean getWechatStatus();
 }

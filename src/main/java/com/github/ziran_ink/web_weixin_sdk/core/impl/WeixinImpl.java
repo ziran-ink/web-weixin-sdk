@@ -1172,9 +1172,4 @@ public class WeixinImpl implements Weixin {
 			LOG.error("remarkNameByUserName", e);
 		}
 	}
-
-	@Override
-	public boolean getWechatStatus() {
-		return storage.isAlive();
-	}
 }
