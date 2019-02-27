@@ -69,9 +69,8 @@ public class WeixinImpl implements Weixin {
 		params.add(new BasicNameValuePair(LoginParaEnum.UUID.para(), storage.getUuid()));
 		params.add(new BasicNameValuePair(LoginParaEnum.TIP.para(), LoginParaEnum.TIP.value()));
 
-		// long time = 4000;
 		while (!isLogin) {
-			// SleepUtils.sleep(time += 1000);
+			LOG.info("微信登陆中……");
 			long millis = System.currentTimeMillis();
 			params.add(new BasicNameValuePair(LoginParaEnum.R.para(), String.valueOf(millis / 1579L)));
 			params.add(new BasicNameValuePair(LoginParaEnum._.para(), String.valueOf(millis)));
@@ -85,6 +84,7 @@ public class WeixinImpl implements Weixin {
 					processLoginInfo(result); // 处理结果
 					isLogin = true;
 					storage.setAlive(isLogin);
+					LOG.info("微信登陆成功");
 					break;
 				}
 				if (ResultEnum.WAIT_CONFIRM.getCode().equals(status)) {
@@ -96,6 +96,89 @@ public class WeixinImpl implements Weixin {
 			}
 		}
 		return isLogin;
+	}
+
+	private static String checklogin(String result) {
+		String regEx = "window.code=(\\d+)";
+		Matcher matcher = CommonTools.getMatcher(regEx, result);
+		if (matcher.find()) {
+			return matcher.group(1);
+		}
+		return null;
+	}
+
+	private void processLoginInfo(String loginContent) {
+		String regEx = "window.redirect_uri=\"(\\S+)\";";
+		Matcher matcher = CommonTools.getMatcher(regEx, loginContent);
+		if (matcher.find()) {
+			String originalUrl = matcher.group(1);
+			String url = originalUrl.substring(0, originalUrl.lastIndexOf('/')); // https://wx2.qq.com/cgi-bin/mmwebwx-bin
+			storage.getLoginInfo().put("url", url);
+			Map<String, List<String>> possibleUrlMap = this.getPossibleUrlMap();
+			Iterator<Entry<String, List<String>>> iterator = possibleUrlMap.entrySet().iterator();
+			Map.Entry<String, List<String>> entry;
+			String fileUrl;
+			String syncUrl;
+			while (iterator.hasNext()) {
+				entry = iterator.next();
+				String indexUrl = entry.getKey();
+				fileUrl = "https://" + entry.getValue().get(0) + "/cgi-bin/mmwebwx-bin";
+				syncUrl = "https://" + entry.getValue().get(1) + "/cgi-bin/mmwebwx-bin";
+				if (storage.getLoginInfo().get("url").toString().contains(indexUrl)) {
+					storage.setIndexUrl(indexUrl);
+					storage.getLoginInfo().put("fileUrl", fileUrl);
+					storage.getLoginInfo().put("syncUrl", syncUrl);
+					break;
+				}
+			}
+			if (storage.getLoginInfo().get("fileUrl") == null && storage.getLoginInfo().get("syncUrl") == null) {
+				storage.getLoginInfo().put("fileUrl", url);
+				storage.getLoginInfo().put("syncUrl", url);
+			}
+			storage.getLoginInfo().put("deviceid", "e" + String.valueOf(new Random().nextLong()).substring(1, 16)); // 生成15位随机数
+			storage.getLoginInfo().put("BaseRequest", new ArrayList<String>());
+			String text = "";
+
+			try {
+				HttpEntity entity = storage.getHttpClientWrapper().doGet(originalUrl, null, false, null);
+				text = EntityUtils.toString(entity);
+			} catch (Exception e) {
+				LOG.error(e.getMessage(), e);
+				return;
+			}
+			// 如果登录被禁止时，则登录返回的message内容不为空，下面代码则判断登录内容是否为空，不为空则退出程序
+			String msg = getLoginMessage(text);
+			if (!"".equals(msg)) {
+				LOG.error(msg);
+			}
+			Document doc = CommonTools.xmlParser(text);
+			if (doc != null) {
+				storage.getLoginInfo().put(StorageLoginInfoEnum.skey.getKey(),
+						doc.getElementsByTagName(StorageLoginInfoEnum.skey.getKey()).item(0).getFirstChild()
+								.getNodeValue());
+				storage.getLoginInfo().put(StorageLoginInfoEnum.wxsid.getKey(),
+						doc.getElementsByTagName(StorageLoginInfoEnum.wxsid.getKey()).item(0).getFirstChild()
+								.getNodeValue());
+				storage.getLoginInfo().put(StorageLoginInfoEnum.wxuin.getKey(),
+						doc.getElementsByTagName(StorageLoginInfoEnum.wxuin.getKey()).item(0).getFirstChild()
+								.getNodeValue());
+				storage.getLoginInfo().put(StorageLoginInfoEnum.pass_ticket.getKey(),
+						doc.getElementsByTagName(StorageLoginInfoEnum.pass_ticket.getKey()).item(0).getFirstChild()
+								.getNodeValue());
+			}
+		}
+	}
+
+	/**
+	 * 解析登录返回的消息，如果成功登录，则message为空
+	 */
+	private static String getLoginMessage(String result) {
+		String[] strArr = result.split("<message>");
+		String[] rs = strArr[1].split("</message>");
+		if (rs != null && rs.length > 1) {
+			return rs[0];
+		}
+		return "";
 	}
 
 	@Override
@@ -447,79 +530,6 @@ public class WeixinImpl implements Weixin {
 		}
 	}
 
-	public String checklogin(String result) {
-		String regEx = "window.code=(\\d+)";
-		Matcher matcher = CommonTools.getMatcher(regEx, result);
-		if (matcher.find()) {
-			return matcher.group(1);
-		}
-		return null;
-	}
-
-	private void processLoginInfo(String loginContent) {
-		String regEx = "window.redirect_uri=\"(\\S+)\";";
-		Matcher matcher = CommonTools.getMatcher(regEx, loginContent);
-		if (matcher.find()) {
-			String originalUrl = matcher.group(1);
-			String url = originalUrl.substring(0, originalUrl.lastIndexOf('/')); // https://wx2.qq.com/cgi-bin/mmwebwx-bin
-			storage.getLoginInfo().put("url", url);
-			Map<String, List<String>> possibleUrlMap = this.getPossibleUrlMap();
-			Iterator<Entry<String, List<String>>> iterator = possibleUrlMap.entrySet().iterator();
-			Map.Entry<String, List<String>> entry;
-			String fileUrl;
-			String syncUrl;
-			while (iterator.hasNext()) {
-				entry = iterator.next();
-				String indexUrl = entry.getKey();
-				fileUrl = "https://" + entry.getValue().get(0) + "/cgi-bin/mmwebwx-bin";
-				syncUrl = "https://" + entry.getValue().get(1) + "/cgi-bin/mmwebwx-bin";
-				if (storage.getLoginInfo().get("url").toString().contains(indexUrl)) {
-					storage.setIndexUrl(indexUrl);
-					storage.getLoginInfo().put("fileUrl", fileUrl);
-					storage.getLoginInfo().put("syncUrl", syncUrl);
-					break;
-				}
-			}
-			if (storage.getLoginInfo().get("fileUrl") == null && storage.getLoginInfo().get("syncUrl") == null) {
-				storage.getLoginInfo().put("fileUrl", url);
-				storage.getLoginInfo().put("syncUrl", url);
-			}
-			storage.getLoginInfo().put("deviceid", "e" + String.valueOf(new Random().nextLong()).substring(1, 16)); // 生成15位随机数
-			storage.getLoginInfo().put("BaseRequest", new ArrayList<String>());
-			String text = "";
-
-			try {
-				HttpEntity entity = storage.getHttpClientWrapper().doGet(originalUrl, null, false, null);
-				text = EntityUtils.toString(entity);
-			} catch (Exception e) {
-				LOG.error(e.getMessage(), e);
-				return;
-			}
-			// add by 默非默 2017-08-01 22:28:09
-			// 如果登录被禁止时，则登录返回的message内容不为空，下面代码则判断登录内容是否为空，不为空则退出程序
-			String msg = getLoginMessage(text);
-			if (!"".equals(msg)) {
-				LOG.info(msg);
-				System.exit(0);
-			}
-			Document doc = CommonTools.xmlParser(text);
-			if (doc != null) {
-				storage.getLoginInfo().put(StorageLoginInfoEnum.skey.getKey(),
-						doc.getElementsByTagName(StorageLoginInfoEnum.skey.getKey()).item(0).getFirstChild()
-								.getNodeValue());
-				storage.getLoginInfo().put(StorageLoginInfoEnum.wxsid.getKey(),
-						doc.getElementsByTagName(StorageLoginInfoEnum.wxsid.getKey()).item(0).getFirstChild()
-								.getNodeValue());
-				storage.getLoginInfo().put(StorageLoginInfoEnum.wxuin.getKey(),
-						doc.getElementsByTagName(StorageLoginInfoEnum.wxuin.getKey()).item(0).getFirstChild()
-								.getNodeValue());
-				storage.getLoginInfo().put(StorageLoginInfoEnum.pass_ticket.getKey(),
-						doc.getElementsByTagName(StorageLoginInfoEnum.pass_ticket.getKey()).item(0).getFirstChild()
-								.getNodeValue());
-			}
-		}
-	}
-
 	private Map<String, List<String>> getPossibleUrlMap() {
 		Map<String, List<String>> possibleUrlMap = new HashMap<String, List<String>>();
 		possibleUrlMap.put("wx.qq.com", new ArrayList<String>() {
@@ -638,18 +648,6 @@ public class WeixinImpl implements Weixin {
 			LOG.error(e.getMessage(), e);
 		}
 		return resultMap;
-	}
-
-	/**
-	 * 解析登录返回的消息，如果成功登录，则message为空
-	 */
-	public String getLoginMessage(String result) {
-		String[] strArr = result.split("<message>");
-		String[] rs = strArr[1].split("</message>");
-		if (rs != null && rs.length > 1) {
-			return rs[0];
-		}
-		return "";
 	}
 
 	@Override
